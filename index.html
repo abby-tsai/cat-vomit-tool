@@ -142,12 +142,12 @@ textarea{min-height:64px;resize:vertical}
 
 <script>
 const KEY="catvomit:v1";
-const KINDS=["吐毛球","吐食物","吐黃水／胃液","吐白泡沫","其他","沒有嘔吐","有餵藥"];
+const KINDS=["吐毛球","吐食物","吐黃水／胃液","吐口水","其他狀況","有餵藥"];
 const FOODS=[["same","沒換"],["changed","有換"]];
 const APP=[[1,"😿 不吃"],[2,"😕 吃很少"],[3,"😺 普通"],[4,"😸 不錯"],[5,"😻 超愛"]];
 const MOODS=["很有活力","正常","較安靜","很沒精神","躲起來"];
 let entries=[];
-try{entries=JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){entries=[]}
+try{entries=JSON.parse(localStorage.getItem(KEY)||"[]").map(e=>({...e,kind:e.kind=== "吐白泡沫"?"吐口水":e.kind=== "其他"||e.kind=== "沒有嘔吐"?"其他狀況":e.kind}))}catch(e){entries=[]}
 const form={kind:KINDS[3],food:"same",appetite:3,mood:"正常",photos:[]};
 let editId=null;
 const $=id=>document.getElementById(id);
@@ -156,8 +156,10 @@ const pad=n=>String(n).padStart(2,"0");
 const todayStr=()=>dayKey(new Date());
 function setNow(){const h=$("h");if(!h.options.length)for(let i=0;i<24;i++)h.add(new Option(i+" 點",pad(i)));$("d").value=todayStr();h.value=pad(new Date().getHours())}
 const dayKey=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-const isVomit=e=>e.kind!=="沒有嘔吐"&&e.kind!=="有餵藥";
+const VOMIT_KINDS=["吐毛球","吐食物","吐黃水／胃液","吐口水"];
+const isVomit=e=>VOMIT_KINDS.includes(e.kind);
 const isMedication=e=>e.kind=== "有餵藥";
+const isOther=e=>e.kind=== "其他狀況";
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(entries));return true}catch(e){alert("儲存空間不足，請刪除一些舊照片或先匯出備份。");return false}}
 
 function chips(el,opts,key){
@@ -284,12 +286,12 @@ function drawCal(){
   if(SEL)$("selX").onclick=()=>{SEL=null;render()};
   if(VIEW!=="cal")return;
   const y=CM.getFullYear(),m=CM.getMonth(),first=new Date(y,m,1).getDay(),n=new Date(y,m+1,0).getDate(),tk=todayStr();
-  const vc={},nv={},med={};entries.forEach(e=>{const k=e.t.slice(0,10);if(isVomit(e))vc[k]=(vc[k]||0)+1;else if(isMedication(e))med[k]=1;else nv[k]=1});
+  const vc={},other={},med={};entries.forEach(e=>{const k=e.t.slice(0,10);if(isVomit(e))vc[k]=(vc[k]||0)+1;else if(isMedication(e))med[k]=1;else if(isOther(e))other[k]=1});
   let h=`<div class="calhd"><button class="btn ghost" id="cPrev">‹</button><b>${y} 年 ${m+1} 月</b><button class="btn ghost" id="cNext">›</button></div><div class="calg">`+"日一二三四五六".split("").map(w=>`<div class="wd">${w}</div>`).join("");
   for(let i=0;i<first;i++)h+="<div></div>";
   for(let d=1;d<=n;d++){const k=`${y}-${pad(m+1)}-${pad(d)}`,v=vc[k]||0;
-    h+=`<button type="button" class="cd${k===tk?" today":""}${k===SEL?" sel":""}${v?" v":""}" data-k="${k}"><span>${d}</span><span class="marks">${v?`<i>${v}</i>`:""}${nv[k]?"<em></em>":""}${med[k]?'<em class="med"></em>':""}</span></button>`}
-  c.innerHTML=h+'</div><div class="meta">數字＝當天嘔吐次數；灰色圓點＝沒有嘔吐；綠色圓點＝有餵藥。點日期可篩選下方紀錄。</div>';
+    h+=`<button type="button" class="cd${k===tk?" today":""}${k===SEL?" sel":""}${v?" v":""}" data-k="${k}"><span>${d}</span><span class="marks">${v?`<i>${v}</i>`:""}${other[k]?"<em></em>":""}${med[k]?'<em class="med"></em>':""}</span></button>`}
+  c.innerHTML=h+'</div><div class="meta">數字＝當天嘔吐次數；灰色圓點＝其他狀況；綠色圓點＝有餵藥。點日期可篩選下方紀錄。</div>';
   $("cPrev").onclick=()=>{CM=new Date(y,m-1,1);drawCal()};
   $("cNext").onclick=()=>{CM=new Date(y,m+1,1);drawCal()};
   c.querySelectorAll(".cd").forEach(b=>b.onclick=()=>{SEL=SEL===b.dataset.k?null:b.dataset.k;$("d").value=b.dataset.k;render()});
