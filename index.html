@@ -57,7 +57,7 @@ textarea{min-height:64px;resize:vertical}
 .cd{font:inherit;font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0;cursor:pointer}
 .cd.v{background:var(--accsoft)}
 .cd i{font-style:normal;font-size:11px;font-weight:700;background:var(--acc);color:var(--on);border-radius:99px;min-width:16px;padding:0 4px}
-.cd em{font-style:normal;color:var(--mute);line-height:.6}
+.cd em{font-style:normal;width:8px;height:8px;background:#4a90d9;border-radius:50%;line-height:0}
 .cd.today{border-color:var(--acc);font-weight:700}
 .cd.sel{outline:2px solid var(--acc)}
 .vb{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.vb .btn{margin:0;width:auto;flex:1 1 auto}
@@ -196,7 +196,8 @@ $("save").onclick=()=>{
   entries.push({id:Date.now().toString(36),t,kind:form.kind,photos:form.photos.slice(),food:form.food,
     foodNote:form.food==="changed"?$("foodNote").value.trim():"",appetite:form.appetite,mood:form.mood,note:$("note").value.trim()});
   if(!persist()){entries.pop();return}
-  form.photos=[];$("note").value="";$("foodNote").value="";setNow();
+  form.photos=[];$("note").value="";$("foodNote").value="";
+  const savedDate=$("d").value;setNow();$("d").value=savedDate;
   drawThumbs();render();
 };
 
@@ -247,15 +248,15 @@ function drawCal(){
   if(SEL)$("selX").onclick=()=>{SEL=null;render()};
   if(VIEW!=="cal")return;
   const y=CM.getFullYear(),m=CM.getMonth(),first=new Date(y,m,1).getDay(),n=new Date(y,m+1,0).getDate(),tk=todayStr();
-  const vc={},ne={};entries.forEach(e=>{const k=e.t.slice(0,10);ne[k]=1;if(isVomit(e))vc[k]=(vc[k]||0)+1});
+  const vc={},nv={};entries.forEach(e=>{const k=e.t.slice(0,10);if(isVomit(e))vc[k]=(vc[k]||0)+1;else nv[k]=1});
   let h=`<div class="calhd"><button class="btn ghost" id="cPrev">‹</button><b>${y} 年 ${m+1} 月</b><button class="btn ghost" id="cNext">›</button></div><div class="calg">`+"日一二三四五六".split("").map(w=>`<div class="wd">${w}</div>`).join("");
   for(let i=0;i<first;i++)h+="<div></div>";
   for(let d=1;d<=n;d++){const k=`${y}-${pad(m+1)}-${pad(d)}`,v=vc[k]||0;
-    h+=`<button type="button" class="cd${k===tk?" today":""}${k===SEL?" sel":""}${v?" v":""}" data-k="${k}"><span>${d}</span>${v?`<i>${v}</i>`:ne[k]?"<em>·</em>":""}</button>`}
-  c.innerHTML=h+'</div><div class="meta">數字＝當天嘔吐次數；「·」＝有紀錄但沒吐。點日期可篩選下方紀錄。</div>';
+    h+=`<button type="button" class="cd${k===tk?" today":""}${k===SEL?" sel":""}${v?" v":""}" data-k="${k}"><span>${d}</span>${v?`<i>${v}</i>`:nv[k]?"<em></em>":""}</button>`}
+  c.innerHTML=h+'</div><div class="meta">數字＝當天嘔吐次數；藍色圓點＝有紀錄但沒吐。點日期可篩選下方紀錄。</div>';
   $("cPrev").onclick=()=>{CM=new Date(y,m-1,1);drawCal()};
   $("cNext").onclick=()=>{CM=new Date(y,m+1,1);drawCal()};
-  c.querySelectorAll(".cd").forEach(b=>b.onclick=()=>{SEL=SEL===b.dataset.k?null:b.dataset.k;render()});
+  c.querySelectorAll(".cd").forEach(b=>b.onclick=()=>{SEL=SEL===b.dataset.k?null:b.dataset.k;$("d").value=b.dataset.k;render()});
 }
 $("chart").onclick=e=>{const b=e.target.closest(".bar");if(b){SEL=SEL===b.dataset.k?null:b.dataset.k;render()}};
 let RANGE=14,DL=null;
