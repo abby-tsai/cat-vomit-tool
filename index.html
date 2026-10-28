@@ -83,6 +83,7 @@ textarea{min-height:64px;resize:vertical}
     </div>
     <div class="chips" id="view" style="margin-top:14px"></div>
     <div id="cal"></div>
+    <div class="chips" id="chartPeriod" style="display:none;margin-top:14px"></div>
     <div class="chart" id="chart" style="display:none"></div>
   </section>
 
@@ -125,7 +126,6 @@ textarea{min-height:64px;resize:vertical}
     <div class="vb">
       <button class="btn" id="vPrev">預覽報告（文字＋照片）</button>
       <button class="btn ghost" id="vCopy">複製文字</button>
-      <button class="btn ghost" id="vShare">複製報告連結</button>
       <button class="btn ghost" id="vDl" style="display:none">下載報告檔</button>
     </div>
     <div class="meta" id="vMsg"></div>
@@ -236,8 +236,9 @@ function render(){
   $("s7").textContent=days.reduce((a,d)=>a+d.n,0);
   const v=entries.filter(isVomit).map(e=>e.t).sort().pop();
   $("sLast").textContent=v?Math.max(0,Math.floor((new Date(tk)-new Date(v.slice(0,10)))/864e5)):"–";
-  const max=Math.max(1,...days.map(d=>d.n));
-  $("chart").innerHTML=days.map(d=>`<div class="bar" data-k="${d.k}">${d.n||""}<i class="${d.n?"":"z"}" style="height:${d.n?Math.round(d.n/max*62)+6:3}px"></i><span>${d.w}</span></div>`).join("");
+  const chartDays=CHART_PERIOD=== "month" ? (()=>{const months=[];for(let i=5;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth()-i,1);months.push({k:dayKey(d),label:`${d.getMonth()+1}月`,n:0})}months.forEach(m=>{const [y,mo]=m.k.split("-").map(Number);entries.filter(isVomit).forEach(e=>{const [ey,em]=e.t.slice(0,10).split("-").map(Number);if(ey===y&&em===mo)m.n++})});return months})():days;
+  const chartMax=Math.max(1,...chartDays.map(d=>d.n));
+  $("chart").innerHTML=chartDays.map(d=>`<div class="bar" ${CHART_PERIOD=== "week"?`data-k="${d.k}"`:""}>${d.n||""}<i class="${d.n?"":"z"}" style="height:${d.n?Math.round(d.n/chartMax*62)+6:3}px"></i><span>${CHART_PERIOD=== "month"?d.label:d.w}</span></div>`).join("");
 
   drawCal();let sorted=entries.slice().sort((a,b)=>b.t.localeCompare(a.t));if(SEL)sorted=sorted.filter(e=>e.t.slice(0,10)===SEL);
   if(!sorted.length){$("list").innerHTML='<div class="empty">這天沒有紀錄 🐾</div>';return}
@@ -267,9 +268,14 @@ $("lb").onclick=()=>{$("lb").style.display="none"};
 
 /* ===== 獸醫報告 ===== */
 let SEL=null,VIEW="cal",CM=new Date();CM.setDate(1);
+let CHART_PERIOD="week";
+function drawChartPeriod(){
+  const el=$("chartPeriod");el.style.display=VIEW=== "bar"?"flex":"none";
+  el.innerHTML="";[["week","週"],["month","月"]].forEach(([v,label])=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=label;b.setAttribute("aria-pressed",String(CHART_PERIOD===v));b.onclick=()=>{CHART_PERIOD=v;drawChartPeriod();render()};el.appendChild(b)});
+}
 function chipsV(){const el=$("view");el.innerHTML="";[["cal","📅 日曆"],["bar","📊 長條圖"]].forEach(([v,l])=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=l;b.setAttribute("aria-pressed",String(VIEW===v));b.onclick=()=>{VIEW=v;chipsV();drawCal()};el.appendChild(b)})}
 function drawCal(){
-  $("chart").style.display=VIEW==="bar"?"flex":"none";
+  $("chart").style.display=VIEW=== "bar"?"flex":"none";drawChartPeriod();
   const c=$("cal");c.style.display=VIEW==="cal"?"block":"none";
   $("hist").style.display=SEL?"block":"none";const sb=$("selBar");sb.innerHTML=SEL?`<div class="meta" style="margin:8px 4px 0">${SEL} 的紀錄　<button class="btn ghost" id="selX">收合</button></div>`:"";
   if(SEL)$("selX").onclick=()=>{SEL=null;render()};
@@ -302,21 +308,10 @@ function buildReport(){const a=picked();if(!a.length)return'<div class="rpt"><p>
   a.map(e=>`<div class="e"><b>${e.t.slice(0,10)} ${e.t.slice(11,13)} 點</b><span class="tag">${esc(e.kind)}</span><br>食慾：${apText(e.appetite)}　精神：${esc(e.mood)}　飼料：${esc(foodText(e))}${e.note?"<br>備註："+esc(e.note):""}${e.photos&&e.photos.length?`<div class="ph">${e.photos.map(p=>`<img src="${p}" alt="">`).join("")}</div>`:""}</div>`).join("")+"</div>"}
 $("vPrev").onclick=()=>{$("rpBody").innerHTML=buildReport();$("rp").style.display="block";$("rp").scrollTop=0};
 $("rpX").onclick=()=>{$("rp").style.display="none"};
-function toBase64Url(value){const bytes=new TextEncoder().encode(value);let binary="";for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
-function fromBase64Url(value){const base=value.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-value.length%4)%4);const binary=atob(base);const bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);return new TextDecoder().decode(bytes)}
-$("vShare").onclick=async()=>{const a=picked();if(!a.length){$("vMsg").textContent="這個區間沒有紀錄。";return}
-  const payload={v:1,entries:a.map(e=>({t:e.t,kind:e.kind,photos:(e.photos||[]).filter(p=>/^data:image\/\/(jpeg|png|webp);base64,/i.test(p)).slice(0,8),food:e.food,foodNote:e.foodNote||"",appetite:e.appetite,mood:e.mood,note:e.note||""}))};
-  const url=new URL(location.href);url.hash="report="+toBase64Url(JSON.stringify(payload));
-  try{await navigator.clipboard.writeText(url.href);$("vMsg").textContent=url.href.length>1800?"已複製報告連結。連結包含照片，較長，建議直接貼到 LINE／訊息並確認可完整開啟。":"已複製報告連結，可直接傳給獸醫。"}
-  catch(e){prompt("複製以下報告連結：",url.href)}
-};
 $("vCopy").onclick=async()=>{const t=buildText();if(!t){$("vMsg").textContent="這個區間沒有紀錄。";return}
   try{await navigator.clipboard.writeText(t);$("vTxt").style.display="none";$("vMsg").textContent="已複製文字。文字不含照片，照片請用「預覽報告」截圖傳送。"}
   catch(e){$("vTxt").value=t;$("vTxt").style.display="block";$("vTxt").select();$("vMsg").textContent="無法自動複製，請在下方文字框全選後複製。"}};
 $("vDl").onclick=async()=>{if(!picked().length||!DL)return;try{await DL.save({filename:"cat-vomit-report.html",data:'<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>貓咪嘔吐紀錄</title></head><body style="margin:0">'+buildReport()+"</body></html>"})}catch(e){}};
-
-const shared=new URLSearchParams(location.hash.slice(1)).get("report");
-if(shared){try{const payload=JSON.parse(fromBase64Url(shared));if(payload.v===1&&Array.isArray(payload.entries)){entries=payload.entries.map((e,i)=>({...e,id:"shared-"+i,photos:Array.isArray(e.photos)?e.photos.filter(p=>/^data:image\/(jpeg|png|webp);base64,/i.test(p)).slice(0,8):[]}));RANGE=0;SEL=null;$("rpBody").innerHTML=buildReport();$("rp").style.display="block";$("rp").scrollTop=0;$("rpX").textContent="← 返回工具"}}catch(e){}}
 
 (async()=>{
   try{
