@@ -42,6 +42,7 @@ textarea{min-height:64px;resize:vertical}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .date-time-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
 .date-time-row input,.date-time-row select{width:100%;min-width:0;height:42px}
+@media (max-width:480px){.date-time-row{grid-template-columns:1fr}}
 .badge{font-size:12px;background:var(--accsoft);color:var(--acc);border-radius:999px;padding:2px 9px;font-weight:600}
 .badge.ok{background:var(--bg);color:var(--mute);border:1px solid var(--line)}
 .meta{font-size:13px;color:var(--mute);margin-top:6px}
